@@ -1,12 +1,7 @@
 from __future__ import print_function
 
 import os
-import StringIO
-import scipy.misc
-import numpy as np
-from glob import glob
 from tqdm import trange
-from itertools import chain
 from collections import deque
 
 from models import *
@@ -122,7 +117,6 @@ class Trainer(object):
         x_fixed = self.get_image_from_loader()
         save_image(x_fixed, '{}/x_fixed.png'.format(self.model_dir))
 
-        prev_measure = 1
         measure_history = deque([0]*self.lr_update_step, self.lr_update_step)
 
         for step in trange(self.start_step, self.max_step):
@@ -186,7 +180,7 @@ class Trainer(object):
         if self.optimizer == 'adam':
             optimizer = tf.train.AdamOptimizer
         else:
-            raise Exception("[!] Caution! Paper didn't use {} opimizer other than Adam".format(config.optimizer))
+            raise Exception("[!] Caution! Paper didn't use {} opimizer other than Adam".format(self.config.optimizer))
 
         g_optimizer, d_optimizer = optimizer(self.g_lr), optimizer(self.d_lr)
 
