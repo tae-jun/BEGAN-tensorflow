@@ -25,8 +25,8 @@ def GeneratorCNN(z, hidden_num, output_num, repeat_num, data_format, reuse):
 
 
 def DiscriminatorCNN(x, input_channel, z_num, repeat_num, hidden_num,
-                     data_format):
-  with tf.variable_scope("D") as vs:
+                     data_format, reuse=None):
+  with tf.variable_scope("D", reuse=reuse) as vs:
     # Encoder
     x = slim.conv2d(x, hidden_num, 3, 1, activation_fn=tf.nn.elu,
                     data_format=data_format)

@@ -161,18 +161,32 @@ class Trainer(object):
         self.x = self.data_loader
         x = norm_img(self.x)
 
-        self.z = tf.random_uniform(
+        self.z_G = tf.random_uniform(
                 (tf.shape(x)[0], self.z_num), minval=-1.0, maxval=1.0)
+
+        self.z_D = tf.random_uniform(
+                (tf.shape(x)[0], self.z_num), minval=-1.0, maxval=1.0)
+
         self.k_t = tf.Variable(0., trainable=False, name='k_t')
 
         G, self.G_var = GeneratorCNN(
-                self.z, self.conv_hidden_num, self.channel,
+                self.z_G, self.conv_hidden_num, self.channel,
                 self.repeat_num, self.data_format, reuse=False)
+
+        G_for_D, _ = GeneratorCNN(
+                self.z_D, self.conv_hidden_num, self.channel,
+                self.repeat_num, self.data_format, reuse=True)
 
         d_out, self.D_z, self.D_var = DiscriminatorCNN(
                 tf.concat([G, x], 0), self.channel, self.z_num, self.repeat_num,
-                self.conv_hidden_num, self.data_format)
+                self.conv_hidden_num, self.data_format, reuse=False)
+
+        d_G_for_D_out, _, _ = DiscriminatorCNN(
+            tf.concat([G_for_D, x], 0), self.channel, self.z_num, self.repeat_num,
+            self.conv_hidden_num, self.data_format, reuse=True)
+
         AE_G, AE_x = tf.split(d_out, 2)
+        AE_G_for_D, _ = tf.split(d_G_for_D_out, 2)
 
         self.G = denorm_img(G, self.data_format)
         self.AE_G, self.AE_x = denorm_img(AE_G, self.data_format), denorm_img(AE_x, self.data_format)
@@ -185,7 +199,7 @@ class Trainer(object):
         g_optimizer, d_optimizer = optimizer(self.g_lr), optimizer(self.d_lr)
 
         self.d_loss_real = tf.reduce_mean(tf.abs(AE_x - x))
-        self.d_loss_fake = tf.reduce_mean(tf.abs(AE_G - G))
+        self.d_loss_fake = tf.reduce_mean(tf.abs(AE_G_for_D - G_for_D))
 
         self.d_loss = self.d_loss_real - self.k_t * self.d_loss_fake
         self.g_loss = tf.reduce_mean(tf.abs(AE_G - G))
@@ -222,7 +236,7 @@ class Trainer(object):
             z_optimizer = tf.train.AdamOptimizer(0.0001)
 
             self.z_r = tf.get_variable("z_r", [self.batch_size, self.z_num], tf.float32)
-            self.z_r_update = tf.assign(self.z_r, self.z)
+            self.z_r_update = tf.assign(self.z_r, self.z_G)
 
         G_z_r, _ = GeneratorCNN(
                 self.z_r, self.conv_hidden_num, self.channel, self.repeat_num, self.data_format, reuse=True)
@@ -235,7 +249,7 @@ class Trainer(object):
         self.sess.run(tf.variables_initializer(test_variables))
 
     def generate(self, inputs, root_path=None, path=None, idx=None, save=True):
-        x = self.sess.run(self.G, {self.z: inputs})
+        x = self.sess.run(self.G, {self.z_G: inputs})
         if path is None and save:
             path = os.path.join(root_path, '{}_G.png'.format(idx))
             save_image(x, path)
